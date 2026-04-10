@@ -1,14 +1,14 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 
 const CONDITION = {
-  critical: { label: "🔴 Critical", color: "#e53935", bg: "rgba(229,57,53,0.12)", border: "rgba(229,57,53,0.3)" },
-  urgent:   { label: "🟡 Urgent",   color: "#f59e0b", bg: "rgba(245,158,11,0.12)", border: "rgba(245,158,11,0.3)" },
-  normal:   { label: "🟢 Normal",   color: "#10b981", bg: "rgba(16,185,129,0.12)", border: "rgba(16,185,129,0.3)" },
+  critical: { label: "🔴 Critical", color: "#e53935", bg: "#fee2e2", border: "#fecaca" },
+  urgent:   { label: "🟡 Urgent",   color: "#f59e0b", bg: "#fef3c7", border: "#fde68a" },
+  normal:   { label: "🟢 Normal",   color: "#10b981", bg: "#d1fae5", border: "#a7f3d0" },
 };
 
 const STATUS = {
-  waiting:     { label: "Waiting",     color: "#94a3b8" },
-  "in-progress": { label: "With Doctor", color: "#60a5fa" },
+  waiting:     { label: "Waiting",     color: "#64748b" },
+  "in-progress": { label: "With Doctor", color: "#3b82f6" },
   completed:   { label: "Completed",   color: "#10b981" },
 };
 
@@ -21,51 +21,124 @@ export default function QueueCard({ patient, isAdmin, onCall, onComplete, onDele
       ? new Date(iso).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true })
       : "—";
 
+  const [elapsed, setElapsed] = useState("");
+  useEffect(() => {
+    if (!patient.bookingTime || patient.status === "completed") return;
+    const update = () => {
+      const diff = Date.now() - new Date(patient.bookingTime).getTime();
+      const mins = Math.floor(diff / 60000);
+      setElapsed(mins > 0 ? `${mins} min` : "< 1 min");
+    };
+    update();
+    const interval = setInterval(update, 60000);
+    return () => clearInterval(interval);
+  }, [patient.bookingTime, patient.status]);
+
   return (
-    <div style={{
-      background: "rgba(255,255,255,0.04)",
-      border: `1px solid rgba(255,255,255,0.07)`,
-      borderLeft: `3px solid ${cond.color}`,
-      borderRadius: 12,
-      padding: "16px 20px",
-      marginBottom: 10,
-      transition: "background 0.2s",
-    }}>
+    <div
+      style={{
+        background: "#ffffff",
+        border: `1px solid #e2e8f0`,
+        borderLeft: `3px solid ${cond.color}`,
+        borderRadius: 12,
+        padding: "16px 20px",
+        marginBottom: 10,
+        transition: "background 0.2s",
+        boxShadow: "0 1px 2px 0 rgb(0 0 0 / 0.05)",
+      }}
+    >
       <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12 }}>
-        {/* Queue number */}
-        <div style={{
-          minWidth: 40, height: 40, borderRadius: "50%",
-          background: cond.bg, border: `1px solid ${cond.border}`,
-          display: "flex", alignItems: "center", justifyContent: "center",
-          fontSize: 14, fontWeight: 700, color: cond.color,
-        }}>
+        <div
+          style={{
+            minWidth: 40,
+            height: 40,
+            borderRadius: "50%",
+            background: cond.bg,
+            border: `1px solid ${cond.border}`,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            fontSize: 14,
+            fontWeight: 700,
+            color: cond.color,
+          }}
+        >
           {patient.queuePosition || "—"}
         </div>
 
-        {/* Main info */}
         <div style={{ flex: 1 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-            <span style={{ fontSize: 15, fontWeight: 700, color: "#f1f5f9" }}>{patient.name}</span>
+            <span style={{ fontSize: 15, fontWeight: 700, color: "#0f172a" }}>{patient.name}</span>
             <span style={{ fontSize: 12, color: "#64748b" }}>Age {patient.age}</span>
-            <span style={{
-              fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 20,
-              background: cond.bg, color: cond.color, border: `1px solid ${cond.border}`,
-            }}>{cond.label}</span>
-            <span style={{ fontSize: 11, color: stat.color, fontWeight: 600 }}>● {stat.label}</span>
+            <span
+              style={{
+                fontSize: 11,
+                fontWeight: 700,
+                padding: "2px 8px",
+                borderRadius: 20,
+                background: cond.bg,
+                color: cond.color,
+                border: `1px solid ${cond.border}`,
+              }}
+            >
+              {cond.label}
+            </span>
+            <span style={{ fontSize: 11, color: stat.color, fontWeight: 600 }}>
+              ● {stat.label}
+            </span>
           </div>
-          <div style={{ fontSize: 13, color: "#94a3b8", marginTop: 6 }}>
+          <div style={{ fontSize: 13, color: "#475569", marginTop: 6 }}>
             <strong style={{ color: "#64748b" }}>Symptoms:</strong> {patient.symptoms}
           </div>
-          <div style={{ display: "flex", gap: 16, marginTop: 8, fontSize: 12, color: "#475569" }}>
+
+          {/* Doctor's live notes (if in-progress and notes exist) */}
+          {patient.status === "in-progress" && patient.notes && (
+            <div
+              style={{
+                marginTop: 10,
+                padding: "8px 12px",
+                background: "#f0fdf4",
+                borderLeft: "3px solid #10b981",
+                borderRadius: 6,
+                fontSize: 13,
+                color: "#065f46",
+              }}
+            >
+              <span style={{ fontWeight: 600, marginRight: 8 }}>📝 Doctor's Notes:</span>
+              {patient.notes}
+            </div>
+          )}
+
+          {/* Doctor's conclusion (if completed) */}
+          {patient.status === "completed" && patient.conclusion && (
+            <div
+              style={{
+                marginTop: 10,
+                padding: "8px 12px",
+                background: "#f0fdf4",
+                borderLeft: "3px solid #10b981",
+                borderRadius: 6,
+                fontSize: 13,
+                color: "#065f46",
+              }}
+            >
+              <span style={{ fontWeight: 600, marginRight: 8 }}>📋 Doctor's Note:</span>
+              {patient.conclusion}
+            </div>
+          )}
+
+          <div style={{ display: "flex", gap: 16, marginTop: 8, fontSize: 12, color: "#64748b", flexWrap: "wrap" }}>
             <span>📅 Booked: {fmt(patient.bookingTime)}</span>
             {patient.phone && <span>📞 {patient.phone}</span>}
-            {patient.status === "waiting" && (
-              <span style={{ color: "#f59e0b" }}>⏱ ~{patient.estimatedWait} min wait</span>
+            {patient.status !== "completed" && elapsed && (
+              <span style={{ color: "#f59e0b" }}>⏱ Waiting for {elapsed}</span>
+            )}
+            {patient.status === "waiting" && patient.estimatedWait && (
+              <span style={{ color: "#f59e0b" }}>⏳ Est. {patient.estimatedWait} min</span>
             )}
           </div>
         </div>
 
-        {/* Actions */}
         {isAdmin && patient.status !== "completed" && (
           <div style={{ display: "flex", flexDirection: "column", gap: 6, minWidth: 110 }}>
             {patient.status === "waiting" && (
@@ -74,11 +147,11 @@ export default function QueueCard({ patient, isAdmin, onCall, onComplete, onDele
               </button>
             )}
             {patient.status === "in-progress" && (
-              <button onClick={() => onComplete(patient.id)} style={btnStyle("#065f46", "#10b981")}>
+              <button onClick={() => onComplete(patient)} style={btnStyle("#065f46", "#10b981")}>
                 ✅ Done
               </button>
             )}
-            <button onClick={() => onDelete(patient.id)} style={btnStyle("#7f1d1d", "#ef4444")}>
+            <button onClick={() => onDelete(patient.id)} style={btnStyle("#991b1b", "#ef4444")}>
               🗑 Remove
             </button>
           </div>
@@ -90,11 +163,11 @@ export default function QueueCard({ patient, isAdmin, onCall, onComplete, onDele
 
 function btnStyle(bg, border) {
   return {
-    background: `${bg}99`,
-    border: `1px solid ${border}55`,
+    background: `${bg}10`,
+    border: `1px solid ${border}40`,
     borderRadius: 8,
     padding: "6px 10px",
-    color: "#e2e8f0",
+    color: bg,
     fontSize: 12,
     fontWeight: 600,
     cursor: "pointer",

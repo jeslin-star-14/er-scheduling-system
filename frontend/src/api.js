@@ -13,8 +13,9 @@ export const addPatient = (data) =>
 export const callPatient = (id) =>
   api.put(`/patients/${id}/call`).then((r) => r.data);
 
-export const completePatient = (id) =>
-  api.put(`/patients/${id}/complete`).then((r) => r.data);
+// ✅ Updated: accepts an optional conclusion payload
+export const completePatient = (id, conclusion = "") =>
+  api.put(`/patients/${id}/complete`, { conclusion }).then((r) => r.data);
 
 export const deletePatient = (id) =>
   api.delete(`/patients/${id}`).then((r) => r.data);
@@ -22,3 +23,7 @@ export const deletePatient = (id) =>
 export const getStats = () => api.get("/stats").then((r) => r.data);
 
 export const getHospital = () => api.get("/hospital").then((r) => r.data);
+// ... existing code ...
+
+export const updatePatientNotes = (id, notes) =>
+  api.put(`/patients/${id}/notes`, { notes }).then((r) => r.data);

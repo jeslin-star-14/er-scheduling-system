@@ -33,25 +33,21 @@ const HOSPITAL = {
 };
 
 // ─── Priority Score ───────────────────────────────────────────────────────────
-// Critical=3, Urgent=2, Normal=1 — higher score = served first
 function priorityScore(condition) {
   if (condition === "critical") return 3;
   if (condition === "urgent") return 2;
   return 1;
 }
 
-// Sort queue: by priority desc, then by bookingTime asc (FCFS within same level)
 function sortQueue() {
   patients.sort((a, b) => {
     const pd = priorityScore(b.condition) - priorityScore(a.condition);
     if (pd !== 0) return pd;
     return new Date(a.bookingTime) - new Date(b.bookingTime);
   });
-  // Reassign queue positions
   patients.forEach((p, i) => (p.queuePosition = i + 1));
 }
 
-// Estimate waiting time (5 min per patient ahead)
 function estimateWait(position) {
   return (position - 1) * 5;
 }
@@ -96,11 +92,13 @@ app.post("/api/patients", (req, res) => {
     name,
     age: Number(age),
     symptoms,
-    condition, // "normal" | "urgent" | "critical"
+    condition,
     phone: phone || "",
     bookingTime: new Date().toISOString(),
-    status: "waiting", // waiting | in-progress | completed
+    status: "waiting",
     queuePosition: patients.length + 1,
+    notes: "",               // added for live doctor notes
+    conclusion: "",          // final conclusion when completed
   };
 
   patients.push(patient);
@@ -113,7 +111,7 @@ app.post("/api/patients", (req, res) => {
   res.status(201).json(enriched);
 });
 
-// Mark patient as in-progress (called to the doctor)
+// Mark patient as in-progress
 app.put("/api/patients/:id/call", (req, res) => {
   const patient = patients.find((p) => p.id === req.params.id);
   if (!patient) return res.status(404).json({ error: "Patient not found" });
@@ -122,20 +120,43 @@ app.put("/api/patients/:id/call", (req, res) => {
   res.json(patient);
 });
 
-// Mark patient as completed → remove from queue
+// ✅ NEW: Update doctor's notes (live)
+app.put("/api/patients/:id/notes", (req, res) => {
+  const { id } = req.params;
+  const { notes } = req.body;
+
+  const patient = patients.find((p) => p.id === id);
+  if (!patient) return res.status(404).json({ error: "Patient not found" });
+
+  patient.notes = notes || "";
+  
+  // Broadcast notes update to all connected clients
+  io.emit("patientNotesUpdated", { patientId: id, notes: patient.notes });
+  
+  res.json({ success: true, notes: patient.notes });
+});
+
+// Mark patient as completed
 app.put("/api/patients/:id/complete", (req, res) => {
-  const idx = patients.findIndex((p) => p.id === req.params.id);
+  const { id } = req.params;
+  const { conclusion } = req.body;   // accept final conclusion
+
+  const idx = patients.findIndex((p) => p.id === id);
   if (idx === -1) return res.status(404).json({ error: "Patient not found" });
+  
   const [done] = patients.splice(idx, 1);
   done.status = "completed";
   done.completedAt = new Date().toISOString();
+  done.conclusion = conclusion || "";   // store final conclusion
+  
   completedPatients.unshift(done);
   if (completedPatients.length > 50) completedPatients.pop();
+  
   broadcastQueue();
   res.json(done);
 });
 
-// Delete patient from queue (admin)
+// Delete patient
 app.delete("/api/patients/:id", (req, res) => {
   const idx = patients.findIndex((p) => p.id === req.params.id);
   if (idx === -1) return res.status(404).json({ error: "Patient not found" });
